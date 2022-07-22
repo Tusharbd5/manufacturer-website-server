@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -14,11 +15,28 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+// Middletear function..
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'Unauthorize access' });
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' });
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+
 async function run() {
     try {
         await client.connect();
         const toolsCollection = client.db('manufacturer_website').collection('tools');
         const ordersCollection = client.db('manufacturer_website').collection('orders');
+        const usersCollection = client.db('manufacturer_website').collection('users');
 
         // Finding all tools of database.
         app.get('/tool', async (req, res) => {
@@ -43,6 +61,21 @@ async function run() {
             res.send(result);
         });
 
+        // Find Orders
+        app.get('/order', verifyJWT, async (req, res) => {
+            const userEmail = req.query.userEmail;
+            const decodedEmail = req.decoded.email;
+            if (userEmail === decodedEmail) {
+                const query = { userEmail: userEmail };
+                const orders = await ordersCollection.find(query).toArray();
+                res.send(orders);
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden access' });
+            }
+
+        });
+
         // Updating Tools information
         app.put('/tool/:id', async (req, res) => {
             const id = req.params.id;
@@ -56,6 +89,21 @@ async function run() {
             };
             const result = await toolsCollection.updateOne(filter, updatedDoc, options);
             res.send(result);
+        });
+
+        // Make User or existing user
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email };
+            const options = { upsert: true };
+
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await usersCollection.updateOne(filter, updateDoc, options);
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res.send({ result, acccessToken: token });
         });
     }
     finally {
