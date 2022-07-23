@@ -100,6 +100,15 @@ async function run() {
             res.send(result);
         });
 
+        // Get one user
+        app.get('/user/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query);
+
+            res.send(user);
+        });
+
         // Make User or existing user
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email;
@@ -111,9 +120,19 @@ async function run() {
                 $set: user,
             };
             const result = await usersCollection.updateOne(filter, updateDoc, options);
+
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
             res.send({ result, acccessToken: token });
         });
+
+
+        // Finding all Users.
+        // app.get('/user', verifyJWT, async (req, res) => {
+        //     const query = {}
+        //     const cursor = usersCollection.find(query);
+        //     const users = await cursor.toArray();
+        //     res.send(users);
+        // });
 
         // Finding all reviews of database.
         app.get('/review', async (req, res) => {
