@@ -37,6 +37,7 @@ async function run() {
         const toolsCollection = client.db('manufacturer_website').collection('tools');
         const ordersCollection = client.db('manufacturer_website').collection('orders');
         const usersCollection = client.db('manufacturer_website').collection('users');
+        const reviewCollection = client.db('manufacturer_website').collection('review');
 
         // Finding all tools of database.
         app.get('/tool', async (req, res) => {
@@ -112,6 +113,27 @@ async function run() {
             const result = await usersCollection.updateOne(filter, updateDoc, options);
             const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
             res.send({ result, acccessToken: token });
+        });
+
+        // Finding all reviews of database.
+        app.get('/review', async (req, res) => {
+            const query = {}
+            const cursor = reviewCollection.find(query);
+            const reviews = await cursor.toArray();
+            res.send(reviews);
+        });
+
+        // Review of users
+        app.post('/review', async (req, res) => {
+            const review = req.body;
+            // const email = req.query.email;
+            const query = { email: review.email }
+            const exists = await reviewCollection.findOne(query)
+            if (exists) {
+                return res.send({ success: false, review: exists });
+            }
+            const result = await reviewCollection.insertOne(review);
+            return res.send({ success: true, result });
         });
     }
     finally {
