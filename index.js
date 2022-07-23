@@ -75,6 +75,25 @@ async function run() {
             res.send(result);
         });
 
+        // Updating Order information
+        app.put('/order/:id', async (req, res) => {
+            const id = req.params.id;
+
+            const query = { _id: ObjectId(id) };
+
+            const updateDoc = {
+                $set: { status: 'SHIPPED' },
+            };
+            const result = await ordersCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
+        // get all orders
+        app.get('/orders', async (req, res) => {
+            const query = {}
+            const orders = await ordersCollection.find(query).toArray();
+            res.send(orders);
+        })
+
         // Find Orders
         app.get('/order', verifyJWT, async (req, res) => {
             const userEmail = req.query.userEmail;
