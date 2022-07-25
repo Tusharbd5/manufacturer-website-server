@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -38,6 +40,7 @@ async function run() {
         const ordersCollection = client.db('manufacturer_website').collection('orders');
         const usersCollection = client.db('manufacturer_website').collection('users');
         const reviewCollection = client.db('manufacturer_website').collection('review');
+        const paymentCollection = client.db('manufacturer_website').collection('payments');
 
 
         const verifyAdmin = async (req, res, next) => {
@@ -51,6 +54,34 @@ async function run() {
                 res.status(403).send({ message: 'Forbidden access' });
             }
         }
+        // Payment creation
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const service = req.body;
+            const price = service.updatedPrice;
+            amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({ clientSecret: paymentIntent.client_secret })
+        })
+
+        // Update orders status
+        app.patch('/order/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId,
+                }
+            }
+            const result = await paymentCollection.insertOne(payment);
+            const updatedOrder = await ordersCollection.updateOne(filter, updatedDoc);
+            res.send(updatedDoc);
+        });
 
         // Finding all tools of database.
         app.get('/tool', async (req, res) => {
@@ -72,6 +103,13 @@ async function run() {
         app.post('/tool', verifyJWT, async (req, res) => {
             const tools = req.body;
             const result = await toolsCollection.insertOne(tools);
+            res.send(result);
+        });
+        // Deleting a Product
+        app.delete('/tool/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) };
+            const result = await toolsCollection.deleteOne(query);
             res.send(result);
         });
 
