@@ -41,6 +41,7 @@ async function run() {
         const usersCollection = client.db('manufacturer_website').collection('users');
         const reviewCollection = client.db('manufacturer_website').collection('review');
         const paymentCollection = client.db('manufacturer_website').collection('payments');
+        const newsCollection = client.db('manufacturer_website').collection('news');
 
 
         const verifyAdmin = async (req, res, next) => {
@@ -259,6 +260,14 @@ async function run() {
             }
             const result = await reviewCollection.insertOne(review);
             return res.send({ success: true, result });
+        });
+
+        // Finding all latest news of database.
+        app.get('/news', async (req, res) => {
+            const query = {}
+            const cursor = newsCollection.find(query);
+            const news = await cursor.toArray();
+            res.send(news);
         });
     }
     finally {
