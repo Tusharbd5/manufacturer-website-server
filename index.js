@@ -220,6 +220,14 @@ async function run() {
             res.send(users);
         });
 
+        // Deleting a user
+        app.delete('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const result = await usersCollection.deleteOne(query);
+            res.send(result);
+        });
+
         // Get admin login status
         app.get('/admin/:email', async (req, res) => {
             const email = req.params.email;
